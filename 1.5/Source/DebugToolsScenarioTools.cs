@@ -12,6 +12,7 @@ using System.Collections;
 using Microsoft.SqlServer.Server;
 using System.Security.Cryptography;
 using static HarmonyLib.Code;
+using LudeonTK;
 
 namespace ExtraFunctions
 {
@@ -144,9 +145,9 @@ namespace ExtraFunctions
                                     {
                                         thing.HitPoints = thing.MaxHitPoints;
                                     }
-                                    Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlag.Buildings);
-                                    Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlag.Things);
-                                    Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlag.BuildingsDamage);
+                                    Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlagDefOf.Buildings);
+                                    Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlagDefOf.Things);
+                                    Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlagDefOf.BuildingsDamage);
                                 }
                             }
                         }
@@ -245,7 +246,8 @@ namespace ExtraFunctions
                         if (Current.ProgramState == ProgramState.Playing)
                         {
                             Find.CurrentMap.roofGrid.Drawer.SetDirty();
-                            Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlag.Things | MapMeshFlag.FogOfWar);
+                            Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlagDefOf.Things);
+                            Find.CurrentMap.mapDrawer.MapMeshDirty(cell, MapMeshFlagDefOf.FogOfWar);
                         }
                     }
                 }
@@ -393,7 +395,7 @@ namespace ExtraFunctions
             });
         }
 
-        [DebugAction("Scenario Tools", "Set faction (rect)", false, false, false, 0, false, actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap, displayPriority = 100)]
+        [DebugAction("Scenario Tools", "Set faction (rect)", false, false, false, false, 0, false, actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap, displayPriority = 100)]
         private static void SetFactionRect()
         {
             List<FloatMenuOption> list = new List<FloatMenuOption>();
@@ -448,6 +450,55 @@ namespace ExtraFunctions
                     ResetResearch(research);
                 }
             }
+        }
+
+        [DebugAction("Scenario Tools", "Make gears biocoded", false, false, false, false, 0, false, actionType = DebugActionType.ToolMap, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void MakeGearsBiocoded()
+        {
+            var pawn = Find.CurrentMap.thingGrid.ThingsAt(UI.MouseCell()).OfType<Pawn>().FirstOrDefault(x => x.RaceProps.Humanlike);
+            var gears = pawn.equipment.AllEquipmentListForReading
+            .Concat(pawn.apparel.WornApparel).Concat(pawn.inventory.innerContainer).ToList();
+            var floatMenu = new List<FloatMenuOption>();
+            foreach (var gear in gears)
+            {
+                var biocodable = gear.TryGetComp<CompBiocodable>();
+                if (biocodable != null && biocodable.CodedPawn != pawn)
+                {
+                    floatMenu.Add(new FloatMenuOption(gear.LabelCap, delegate
+                    {
+                        biocodable.CodeFor(pawn);
+                    }));
+                }
+            }
+            if (floatMenu.Any())
+            {
+                Find.WindowStack.Add(new FloatMenu(floatMenu));
+            }
+        }
+
+        [DebugAction("Scenario Tools", "Make gears biocoded (rect)", false, false, false, false, 0, false, actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void MakeGearsBiocodedRect()
+        {
+            DebugToolsGeneral.GenericRectTool("Make room", delegate (CellRect rect)
+            {
+                foreach (var cell in rect.Cells)
+                {
+                    var pawns = cell.GetThingList(Find.CurrentMap).OfType<Pawn>().Where(x => x.RaceProps.Humanlike).ToList();
+                    foreach (var pawn in pawns)
+                    {
+                        var gears = pawn.equipment.AllEquipmentListForReading
+                        .Concat(pawn.apparel.WornApparel).Concat(pawn.inventory.innerContainer).ToList();
+                        foreach (var gear in gears)
+                        {
+                            var biocodable = gear.TryGetComp<CompBiocodable>();
+                            if (biocodable != null && biocodable.CodedPawn != pawn)
+                            {
+                                biocodable.CodeFor(pawn);
+                            }
+                        }
+                    }
+                }
+            });
         }
     }
 }
